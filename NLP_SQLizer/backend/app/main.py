@@ -10,6 +10,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .db import engine as default_engine
 from .settings import settings
+from .ai.nl2sql import (
+    load_schema, select_relevant, ask_llm,
+    ensure_select_only, enforce_limit, ensure_tables_allowed, finalize_sql,
+    execute_readonly, explain, SQLSafetyError
+)
+from .ai.llm import LLMNotConfigured
 
 
 app = FastAPI(title="NLP_SQLizer Backend", version="0.1.0")
@@ -136,3 +142,74 @@ def schema_overview(payload: Optional[Dict[str, Any]] = Body(default=None)):
         }
     except SQLAlchemyError as e:
         raise HTTPException(status_code=400, detail=f"Schema inspection failed: {e}")
+
+@app.post("/ai/nl2sql")
+def ai_nl2sql(payload: dict = Body(...)):
+    """
+    Body: {
+      "question": "natural language question",
+      optional "connection": { url | parts }
+    }
+    Returns: { ok, sql, slice, warnings? }
+    """
+    question = (payload.get("question") or "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Missing 'question'")
+
+    conn_payload = payload.get("connection")
+    eng = _pick_engine(conn_payload)
+
+    try:
+        schema = load_schema(eng)
+        slice_ = select_relevant(schema, question)
+        # Try LLM; if not configured, tell caller clearly
+        try:
+            draft = ask_llm(question, slice_)
+        except LLMNotConfigured as e:
+            raise HTTPException(status_code=503, detail=str(e))
+
+        expr = ensure_select_only(draft)
+        ensure_tables_allowed(expr, slice_)
+        expr = enforce_limit(expr, 100)
+        sql = finalize_sql(expr)
+
+        return {"ok": True, "sql": sql, "slice": slice_, "warnings": []}
+    except SQLSafetyError as e:
+        raise HTTPException(status_code=400, detail=f"Validation failed: {e}")
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=400, detail=f"Schema load failed: {e}")
+
+@app.post("/ai/run")
+def ai_run(payload: dict = Body(...)):
+    """
+    Body: { "sql": "...", optional "connection": { url | parts }, "timeout_ms": 5000 }
+    Returns: { ok, columns, rows, rowcount, explain }
+    """
+    sql = (payload.get("sql") or "").strip()
+    if not sql:
+        raise HTTPException(status_code=400, detail="Missing 'sql'")
+
+    # Safety pass again if someone calls /ai/run directly
+    try:
+        expr = ensure_select_only(sql)
+        expr = enforce_limit(expr, 100)
+        sql_final = finalize_sql(expr)
+    except SQLSafetyError as e:
+        raise HTTPException(status_code=400, detail=f"Validation failed: {e}")
+
+    eng = _pick_engine(payload.get("connection"))
+    timeout_ms = int(payload.get("timeout_ms") or 5000)
+
+    try:
+        with eng.connect() as conn:
+            cols, rows = execute_readonly(conn, sql_final, timeout_ms)
+            plan = explain(conn, sql_final)
+            return {
+                "ok": True,
+                "columns": cols,
+                "rows": rows,
+                "rowcount": len(rows),
+                "explain": plan,
+            }
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=400, detail=f"Execution failed: {e}")
