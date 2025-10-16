@@ -1,14 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import os
+from sqlalchemy import text, inspect
+from .db import engine
+from .settings import settings
 
 app = FastAPI()
 
-# Allow the Vite dev server by default
-allowed_origin = os.getenv("ALLOWED_ORIGIN", "http://localhost:5173")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[allowed_origin],
+    allow_origins=[settings.ALLOWED_ORIGIN],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -17,3 +17,20 @@ app.add_middleware(
 @app.get("/healthz")
 def healthz():
     return {"ok": True, "service": "backend", "message": "healthy"}
+
+@app.get("/connect/test")
+def connect_test():
+    with engine.connect() as conn:
+        _ = conn.execute(text("SELECT 1")).scalar()  # portable ping
+        dialect = conn.dialect.name
+    return {"ok": True, "dialect": dialect, "url": settings.DATABASE_URL}
+
+@app.get("/schema/overview")
+def schema_overview():
+    insp = inspect(engine)
+    tables = []
+    for t in insp.get_table_names():
+        cols = [{"name": c["name"], "type": str(c["type"]), "nullable": c.get("nullable", True)}
+                for c in insp.get_columns(t)]
+        tables.append({"table": t, "columns": cols})
+    return {"ok": True, "dialect": engine.dialect.name, "tables": tables}
