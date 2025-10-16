@@ -1,0 +1,49 @@
+├── .env.sample
+├── .gitignore
+├── Deliverables
+    ├── Report 1
+    │   ├── Project_Proposal_Team_04_AI_DB_Copilot.docx
+    │   └── Project_Proposal_Team_04_Singhk6.pdf
+    └── Report 2
+    │   ├── Project_Progress_Report2_Team_04.docx
+    │   └── Project_Progress_Report2_Team_04.pdf
+├── Miscellaneous
+    ├── First_View_NLP_SQLizer.mp4
+    ├── Project_Plan.txt
+    └── frontend.mhtml
+├── NLP_SQLizer
+    ├── backend
+    │   ├── app
+    │   │   ├── db.py
+    │   │   ├── main.py
+    │   │   └── settings.py
+    │   └── requirements.txt
+    └── frontend
+    │   ├── .gitignore
+    │   ├── README.md
+    │   ├── eslint.config.js
+    │   ├── index.html
+    │   ├── package-lock.json
+    │   ├── package.json
+    │   ├── public
+    │       └── vite.svg
+    │   ├── src
+    │       ├── App.jsx
+    │       ├── assets
+    │       │   └── BG.png
+    │       ├── components
+    │       │   ├── ConnectModal.jsx
+    │       │   ├── DBCard.jsx
+    │       │   └── ProgressStrip.jsx
+    │       ├── index.css
+    │       ├── lib
+    │       │   ├── api.js
+    │       │   ├── dburl.js
+    │       │   └── storage.js
+    │       ├── main.jsx
+    │       └── pages
+    │       │   ├── Chat.jsx
+    │       │   ├── Database.jsx
+    │       │   └── Home.jsx
+    │   └── vite.config.js
+└── README.md
