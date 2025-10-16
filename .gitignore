@@ -1,0 +1,57 @@
+
+---
+
+# Root-level `.gitignore` (drop-in)
+
+```gitignore
+# OS
+.DS_Store
+Thumbs.db
+
+# Node / Frontend
+node_modules/
+npm-debug.log*
+dist/
+build/
+.vite/
+.cache/
+*.log
+
+# Python / Backend
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.pytype/
+
+# Editors / IDE
+.vscode/
+.idea/
+*.swp
+
+# Env & local config
+.env
+# .env.*
+*.local
+*.secret
+*.key
+
+# Data & artifacts
+*.sqlite
+*.db
+*.csv
+*.parquet
+*.ipynb_checkpoints/
+
+# Coverage & reports
+coverage.xml
+junit.xml
+
+# Bundled assets
+*.tar
+*.zip

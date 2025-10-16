@@ -1,0 +1,83 @@
+NLP_SQLizer — Project Plan (Team 04, Database Theory)
+
+1) Purpose & Outcomes
+- Build a small, reliable NL->SQL copilot that connects to an existing SQL database and answers questions safely.
+- Deliverables: working demo, README, evaluation report/appendix, and course reports (Report 1 & 2 in Deliverables/).
+
+2) Scope
+In-scope (v1):
+- PostgreSQL target, read-only queries, candidate generation (3-5), schema crawl, chat UI with voice.
+Out-of-scope (v1):
+- Auth/accounts, multi-tenant persistence, write queries (DDL/INSERT/UPDATE/DELETE), fine-tuning LLMs.
+
+3) User Stories
+- As a user, I can paste a DB URL or enter host/port/db/user/password to connect.
+- As a user, I never have my password stored; I can quickly reconnect using a non-secret profile.
+- As a user, I can ask a question, see the SQL produced, get results, export CSV, and read a short explanation.
+- As a user, I can open a Schema Explorer to understand available tables/columns and relationships.
+
+4) Success Criteria (Definition of Done)
+- Connecting succeeds/fails with clear messages; credentials not persisted.
+- For a 50-question test set, execution success >= 70% and unsafe query rate = 0.
+- Every returned answer includes SQL + results (or error with reason) + explanation; EXPLAIN gate enforced.
+- Demo script runs cleanly on a fresh machine using README instructions.
+
+5) Team & Responsibilities
+- Kartavya (Lead): backend architecture, schema crawl, NL->SQL planner/ranker, safety/execution, integration.
+- Kanav: frontend UX (connect/chat/voice), telemetry & usability; assists with schema prompt context.
+- Sarthak: API contracts and connection manager, evaluation set/scripts, documentation and course write-ups.
+
+6) Milestones & Timeline (6 weeks)
+Week 1: Connect flow (URL/manual) + /connect/test; read-only role guidance; start schema crawler.
+Week 2: Schema explorer UI; NL->SQL v1 (template/rules) with LIMIT and denylist.
+Week 3: Candidate generation (join path search, predicate variants) + ranking; EXPLAIN gate.
+Week 4: Chat UX polish; voice input (Web Speech API); CSV export; better errors/empty states.
+Week 5: Evaluation harness; 50 NL<->SQL pairs; small user test; performance caps; timeouts.
+Week 6: Final polish, slides, demo script; write the report (methods, metrics, limitations, future work).
+
+7) Technical Decisions
+- Backend: FastAPI (Python 3.11+), psycopg for Postgres, SQL parsing/AST checks, server-side statement_timeout.
+- Frontend: React (Vite), fetch API, minimal state (URL params + cookie/localStorage profile), Web Speech API for voice.
+- Safety: read-only role, LIMIT injection when absent, EXPLAIN cost/cardinality thresholds, denylist for DDL/WRITE.
+- Context: schema pack (tables/columns/types, PK/FK edges, samples, synonyms), cached per session.
+- NL->SQL: intent -> grounding -> candidate generation -> ranking -> EXPLAIN gate -> execution -> explanation.
+
+8) Risks & Mitigations
+- Ambiguous schema names -> Add synonyms from samples; provide a Schema Explorer; allow quick disambiguation chips.
+- Expensive queries -> EXPLAIN gate + LIMIT + statement_timeout + user prompt for narrowing.
+- DSN handling mistakes -> Keep password separate; never log DSNs; DSN assembled only in memory; validate inputs strictly.
+- Time squeeze -> Lock scope to Postgres read-only; ship thin but reliable features.
+
+9) Evaluation Plan
+- Datasets: "school" and "store" schemas with realistic FKs and categorical fields.
+- Metrics: execution success, result-set F1 vs gold, unsafe rate (0 target), time-to-first-correct.
+- Process: run the 50-question set after each planner change; log failures with reasons.
+
+10) Demo Script (3-4 minutes)
+1. Paste DSN without password -> prompt for password -> connect.
+2. Show Schema Explorer (tables, keys).
+3. Ask three queries:
+   a) Students with a "C" and numeric score > 75.
+   b) Top 5 courses by average score last year.
+   c) Count of students per grade letter.
+4. Show SQL + results + explanation; export CSV.
+5. Disconnect and reconnect using "last profile."
+
+11) Repository Setup (Day 1)
+- Name: dbt-nlp-sqlizer (alternatives: nlp-sqlizer-team04, ai-db-copilot-team04).
+- Topics: text-to-sql, nlp, postgres, fastapi, react, safe-execution, explainability.
+- Default branch: main; PRs require lint/tests.
+- CI: GitHub Actions for frontend (npm lint/build) and backend (ruff/pytest).
+- Files: README.md, .gitignore, LICENSE (MIT), CONTRIBUTING.md, docs/architecture.md.
+
+12) File Tree (initial)
+PROJECT_TEAM_04/
+├─ Deliverables/
+│  ├─ Report_1/
+│  └─ Report_2/
+└─ NLP_SQLizer/
+   ├─ frontend/      (Vite React starter)
+   └─ backend/       (FastAPI starter: /healthz, /connect/test, /schema/overview, /chat/ask)
+
+13) Future Work (post-v1)
+- Dialect adapters (MySQL/SQLite), provenance explanations, synonym learning from feedback, caching schema context, lightweight semantic reranking.
