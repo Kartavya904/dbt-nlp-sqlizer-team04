@@ -17,6 +17,8 @@ from .ai.nl2sql import (
 )
 from .ai.llm import LLMNotConfigured
 
+from .routes_ai import router as ai_router
+
 
 app = FastAPI(title="NLP_SQLizer Backend", version="0.1.0")
 
@@ -43,6 +45,7 @@ app.add_middleware(
 def healthz():
     return {"ok": True, "service": "backend", "message": "healthy"}
 
+app.include_router(ai_router)
 
 # ---------- Helpers ----------
 

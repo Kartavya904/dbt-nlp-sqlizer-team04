@@ -120,16 +120,41 @@ def finalize_sql(expr: sg.Expression) -> str:
 
 # ---------- Execution ----------
 
-def execute_readonly(conn: Connection, sql: str, timeout_ms: int = 5000) -> Tuple[List[str], List[Tuple]]:
-    # Short statement timeout for safety (Postgres)
+# app/ai/nl2sql.py (or wherever execute_readonly lives)
+from decimal import Decimal
+from datetime import date, datetime, time
+from sqlalchemy.engine import Connection
+
+def _jsonable(v):
+    if isinstance(v, Decimal):
+        return float(v)  # or str(v) if you need exactness
+    if isinstance(v, (date, datetime, time)):
+        return v.isoformat()
+    return v
+
+def execute_readonly(conn: Connection, sql: str, timeout_ms: int = 5000):
+    # Keep queries safe/fast
     try:
+        # Postgres: short statement timeout
         conn.exec_driver_sql(f"SET LOCAL statement_timeout = {timeout_ms}")
     except Exception:
         pass
+
     res = conn.exec_driver_sql(sql)
-    cols = [c[0] for c in res.cursor.description] if res.cursor and res.cursor.description else []
-    rows = res.fetchall() if cols else []
+
+    # Columns
+    cols = []
+    if getattr(res, "cursor", None) and res.cursor.description:
+        cols = [c[0] for c in res.cursor.description]
+
+    # Rows → plain lists of JSON-safe values
+    rows = []
+    if cols:
+        for row in res.fetchall():            # row is a tuple/Row object
+            rows.append([_jsonable(v) for v in row])
+
     return cols, rows
+
 
 def explain(conn: Connection, sql: str) -> str:
     try:

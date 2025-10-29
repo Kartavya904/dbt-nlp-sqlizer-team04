@@ -38,3 +38,14 @@ export async function connectTest(payload) {
 export async function schemaOverview(payload) {
   return tryPostOrGet("/schema/overview", payload);
 }
+
+export async function aiAsk(question, connection, opts = {}) {
+  const body = { question, connection, ...opts };
+  const r = await fetch(`${API}/ai/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error((await r.json()).detail || "Request failed");
+  return r.json();
+}
