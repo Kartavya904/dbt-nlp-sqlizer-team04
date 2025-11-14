@@ -10,10 +10,20 @@ async function tryPostOrGet(path, body) {
       body: JSON.stringify(body || {}),
     });
     if (r.ok) return await r.json();
-  } catch {
+    
+    // If POST fails with 400, it's likely a validation error - don't fall back to GET
+    if (r.status === 400) {
+      const errorData = await r.json().catch(() => ({ detail: "Bad Request" }));
+      throw new Error(errorData.detail || "Connection failed");
+    }
+  } catch (e) {
+    // If it's already an Error with a message, re-throw it
+    if (e instanceof Error && e.message) {
+      throw e;
+    }
     console.error("POST failed, falling back to GET", path, body);
   }
-  // Fallback to GET (uses server's current engine)
+  // Fallback to GET (uses server's current engine) - only for non-400 errors
   const r2 = await fetch(`${API}${path}`);
   return await r2.json();
 }
@@ -28,7 +38,12 @@ export async function health() {
  * Returns: { ok, dialect, url?, error? }
  */
 export async function connectTest(payload) {
-  return tryPostOrGet("/connect/test", payload);
+  try {
+    return await tryPostOrGet("/connect/test", payload);
+  } catch (e) {
+    // Return error in expected format
+    return { ok: false, error: e.message || String(e) };
+  }
 }
 
 /**

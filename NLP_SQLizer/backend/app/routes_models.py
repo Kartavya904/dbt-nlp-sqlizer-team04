@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from .models import ModelTrainer, SchemaModel, SchemaQueryGenerator
 from .models.progress import get_progress, is_training, set_progress
 from .schema import crawl_schema
+from .mongodb_adapter import is_mongodb_url, crawl_mongodb_schema
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -31,15 +32,35 @@ def _engine_from_connection(connection: Optional[Dict[str, Any]]):
         # Method 1: full URL
         url_str = (connection.get("url") or "").strip()
         if url_str:
+            # MongoDB is handled separately in the train endpoint
+            # No need to block it here
+            
             logger.info(f"Creating engine from URL: {url_str[:50]}...")
-            return create_engine(url_str, pool_pre_ping=True)
+            
+            # Handle SQLite specially
+            kwargs = {}
+            if url_str.startswith("sqlite"):
+                kwargs["connect_args"] = {"check_same_thread": False}
+            else:
+                kwargs["pool_pre_ping"] = True
+            return create_engine(url_str, **kwargs)
         
         # Method 2: discrete parts
         parts = connection.get("parts") or {}
         if parts:
             logger.info(f"Creating engine from parts: {list(parts.keys())}")
+            driver = parts.get("DB_DRIVER", "postgresql+psycopg")
+            
+            # Handle SQLite specially
+            if driver and "sqlite" in driver.lower():
+                db_name = parts.get("DB_NAME") or ""
+                url_str = f"{driver}:///{db_name}"
+                logger.info(f"SQLite URL: {url_str}")
+                return create_engine(url_str, connect_args={"check_same_thread": False})
+            
+            # For other databases, build URL from parts
             url = URL.create(
-                drivername=parts.get("DB_DRIVER", "postgresql+psycopg"),
+                drivername=driver,
                 username=parts.get("DB_USER") or None,
                 password=parts.get("DB_PASSWORD") or None,
                 host=parts.get("DB_HOST", "localhost"),
@@ -54,6 +75,13 @@ def _engine_from_connection(connection: Optional[Dict[str, Any]]):
     except HTTPException:
         raise
     except Exception as e:
+        # Check for SQLAlchemy dialect errors
+        error_str = str(e)
+        if "NoSuchModuleError" in error_str or "Can't load plugin" in error_str:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported database type. This application supports SQL databases (PostgreSQL, MySQL, SQLite, SQL Server, Oracle) and MongoDB (schema inspection only). Error: {error_str}"
+            )
         logger.error(f"Error creating engine: {e}", exc_info=True)
         raise HTTPException(400, f"Invalid connection details: {e}")
 
@@ -63,6 +91,7 @@ def get_schema_id(payload: dict = Body(...)):
     """
     Get schema ID for a connection without training.
     Useful for checking if model exists.
+    Supports both SQL databases and MongoDB.
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -76,10 +105,17 @@ def get_schema_id(payload: dict = Body(...)):
             logger.error("Missing 'connection' in payload")
             raise HTTPException(400, "Missing 'connection' in payload")
         
-        eng = _engine_from_connection(connection)
-        logger.info(f"Engine created successfully")
+        # Check for MongoDB
+        url_str = (connection.get("url") or "").strip()
+        if url_str and is_mongodb_url(url_str):
+            logger.info("MongoDB detected, using MongoDB schema crawler")
+            metadata = crawl_mongodb_schema(url_str, sample_size=50)
+        else:
+            # SQL database
+            eng = _engine_from_connection(connection)
+            logger.info(f"Engine created successfully")
+            metadata = crawl_schema(eng, sample_size=50)  # Quick crawl
         
-        metadata = crawl_schema(eng, sample_size=50)  # Quick crawl
         schema_id = _trainer.generate_schema_id(metadata)
         logger.info(f"Schema ID generated: {schema_id}")
         
@@ -113,16 +149,26 @@ def train_model(
     }
     
     Returns: { ok, schema_id, status, message }
+    Supports both SQL databases and MongoDB.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     connection = payload.get("connection")
     force_retrain = payload.get("force_retrain", False)
     use_llm = payload.get("use_llm_for_training", True)
     
-    eng = _engine_from_connection(connection)
-    
     try:
-        # Crawl schema
-        metadata = crawl_schema(eng, sample_size=100)
+        # Check for MongoDB
+        url_str = (connection.get("url") or "").strip() if connection else ""
+        if url_str and is_mongodb_url(url_str):
+            logger.info("MongoDB detected for model training, using MongoDB schema crawler")
+            metadata = crawl_mongodb_schema(url_str, sample_size=100)
+        else:
+            # SQL database
+            eng = _engine_from_connection(connection)
+            # Crawl schema
+            metadata = crawl_schema(eng, sample_size=100)
         
         # Check if model already exists
         schema_id = _trainer.generate_schema_id(metadata)
@@ -147,16 +193,17 @@ def train_model(
             }
         
         # Train model in background
-        def train_task():
+        # Capture metadata and schema_id in closure for MongoDB support
+        def train_task(metadata_to_use, sid):
             try:
-                model = _trainer.train(metadata, use_llm_for_training=use_llm, track_progress=True)
+                model = _trainer.train(metadata_to_use, use_llm_for_training=use_llm, track_progress=True)
                 _trainer.save_model(model)
             except Exception as e:
                 from .models.progress import set_error
-                set_error(schema_id, str(e))
-                print(f"Training error: {e}")
+                set_error(sid, str(e))
+                logger.error(f"Training error: {e}", exc_info=True)
         
-        background_tasks.add_task(train_task)
+        background_tasks.add_task(train_task, metadata, schema_id)
         return {
             "ok": True,
             "schema_id": schema_id,

@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .db import engine as default_engine
 from .settings import settings
+from .mongodb_adapter import is_mongodb_url, get_mongodb_schema, test_mongodb_connection
 
 # Configure logging
 logging.basicConfig(
@@ -67,23 +68,47 @@ def _engine_from_payload(payload: Optional[Dict[str, Any]]):
     logger = logging.getLogger(__name__)
     
     if not payload:
-        logger.info("No payload provided, using default engine")
+        logger.info("No payload provided")
         return None
 
     try:
         # Method 1: full URL
         url_str = (payload.get("url") or "").strip()
         if url_str:
-            logger.info(f"Creating engine from URL in payload")
-            # pool_pre_ping keeps long-lived servers from holding dead sockets
-            return create_engine(url_str, pool_pre_ping=True)
+            # Check for MongoDB - handle separately
+            url_lower = url_str.lower()
+            if url_lower.startswith("mongodb"):
+                logger.info(f"MongoDB URL detected: {url_str[:50]}...")
+                # MongoDB is handled separately in routes, return None to indicate special handling
+                return None
+            
+            logger.info(f"Creating engine from URL in payload: {url_str[:50]}...")
+            
+            # Handle SQLite specially (no pool_pre_ping needed)
+            kwargs = {}
+            if url_str.startswith("sqlite"):
+                kwargs["connect_args"] = {"check_same_thread": False}
+            else:
+                kwargs["pool_pre_ping"] = True
+            return create_engine(url_str, **kwargs)
 
         # Method 2: discrete parts
         parts = payload.get("parts") or {}
         if parts:
             logger.info(f"Creating engine from parts: {list(parts.keys())}")
+            driver = parts.get("DB_DRIVER", "postgresql+psycopg")
+            
+            # Handle SQLite specially
+            if driver and "sqlite" in driver.lower():
+                db_name = parts.get("DB_NAME") or ""
+                # SQLite uses file path, not host:port
+                url_str = f"{driver}:///{db_name}"
+                logger.info(f"SQLite URL: {url_str}")
+                return create_engine(url_str, connect_args={"check_same_thread": False})
+            
+            # For other databases, build URL from parts
             url = URL.create(
-                drivername=parts.get("DB_DRIVER", "postgresql+psycopg"),
+                drivername=driver,
                 username=parts.get("DB_USER") or None,
                 password=parts.get("DB_PASSWORD") or None,  # safely quoted by SQLAlchemy
                 host=parts.get("DB_HOST", "localhost"),
@@ -93,14 +118,23 @@ def _engine_from_payload(payload: Optional[Dict[str, Any]]):
             logger.info(f"URL created from parts: {url.render_as_string(hide_password=True)}")
             return create_engine(url, pool_pre_ping=True)
         
-        # Empty payload - fall back to default
-        logger.info("Payload provided but no 'url' or 'parts' found, using default engine")
+        # Empty payload - no connection details
+        logger.warning("Payload provided but no 'url' or 'parts' found")
+        return None
+    except HTTPException:
+        raise
     except Exception as e:
+        # Check for SQLAlchemy dialect errors (but MongoDB is handled separately)
+        error_str = str(e)
+        if "NoSuchModuleError" in error_str or "Can't load plugin" in error_str:
+            # MongoDB is handled separately, so this must be another unsupported type
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported database type. This application supports SQL databases (PostgreSQL, MySQL, SQLite, SQL Server, Oracle) and MongoDB. Error: {error_str}"
+            )
         # Bad URL or malformed parts → 400
         logger.error(f"Error creating engine from payload: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Invalid connection details: {e}")
-
-    return None
 
 
 def _pick_engine(payload: Optional[Dict[str, Any]]):
@@ -124,6 +158,20 @@ def connect_test(payload: Optional[Dict[str, Any]] = Body(default=None)):
       - POST body { "parts": { DB_DRIVER, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD } }
     or falls back to the server's default engine on GET.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Check for MongoDB connection
+    if payload:
+        url_str = (payload.get("url") or "").strip()
+        if url_str and is_mongodb_url(url_str):
+            try:
+                return test_mongodb_connection(url_str)
+            except Exception as e:
+                logger.error(f"MongoDB connection test failed: {e}")
+                raise HTTPException(status_code=400, detail=str(e))
+    
+    # Handle SQL databases
     eng = _pick_engine(payload)
     try:
         with eng.connect() as conn:
@@ -144,13 +192,35 @@ def schema_overview(payload: Optional[Dict[str, Any]] = Body(default=None)):
     Return a lightweight schema map:
       { ok, dialect, tables: [ { table, columns: [ { name, type, nullable } ] } ] }
     Accepts the same payload as /connect/test or falls back to the default engine.
+    Supports both SQL databases and MongoDB.
     """
     import logging
     logger = logging.getLogger(__name__)
     
     try:
         logger.info(f"Received payload for /schema/overview: {payload}")
-        eng = _pick_engine(payload)
+        
+        # Check for MongoDB connection
+        if payload:
+            url_str = (payload.get("url") or "").strip()
+            if url_str and is_mongodb_url(url_str):
+                logger.info("Detected MongoDB connection, using MongoDB adapter")
+                try:
+                    return get_mongodb_schema(url_str)
+                except Exception as e:
+                    logger.error(f"MongoDB schema inspection failed: {e}", exc_info=True)
+                    raise HTTPException(status_code=400, detail=f"MongoDB schema inspection failed: {e}")
+        
+        # Handle SQL databases
+        # Always use the provided payload - never fall back to default if payload exists
+        if payload:
+            eng = _engine_from_payload(payload)
+            if not eng:
+                raise HTTPException(status_code=400, detail="Invalid connection details in payload")
+        else:
+            # Only use default engine if no payload provided (GET request)
+            eng = default_engine
+            logger.info("No payload provided, using default engine")
         logger.info(f"Engine selected: {_safe_url_str(eng)}")
         
         insp = inspect(eng)

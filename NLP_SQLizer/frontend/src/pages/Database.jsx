@@ -21,7 +21,18 @@ export default function Database() {
 
   // Check model status and auto-train
   useEffect(() => {
-    if (!conn || conn.id !== decodeURIComponent(id)) {
+    const decodedId = decodeURIComponent(id);
+    
+    // Reset state when switching databases
+    setSchema(null);
+    setSchemaId(null);
+    setModelStatus(null);
+    setTrainingProgress(null);
+    setIndexProgress(0);
+    setTrainProgress(0);
+    setErr("");
+    
+    if (!conn || conn.id !== decodedId) {
       setErr("No active connection. Returning home…");
       const t = setTimeout(() => nav("/"), 1200);
       return () => clearTimeout(t);
@@ -58,6 +69,39 @@ export default function Database() {
         if (res?.ok) {
           setSchema(res);
           setIndexProgress(100); // Schema loaded = indexing complete
+          
+          // Update connection name if we got database info from schema
+          // For MongoDB, use the database name from the response
+          if (res.dialect === "mongodb") {
+            const dbName = res.database;
+            if (dbName && dbName !== "admin") {
+              // Update the connection name if it's better than current
+              const currentName = conn.name || "";
+              if (!currentName || currentName === conn.host || currentName.includes("mongodb") || currentName.toLowerCase() === "mongodb") {
+                setConn({
+                  ...conn,
+                  name: dbName,
+                  database: dbName,
+                });
+              }
+            } else if (res.tables && res.tables.length > 0) {
+              // Fallback: Try to extract database name from table names (format: "dbname.collection")
+              const firstTable = res.tables[0]?.table || "";
+              if (firstTable.includes(".")) {
+                const extractedDbName = firstTable.split(".")[0];
+                if (extractedDbName && extractedDbName !== "admin") {
+                  const currentName = conn.name || "";
+                  if (!currentName || currentName === conn.host || currentName.includes("mongodb") || currentName.toLowerCase() === "mongodb") {
+                    setConn({
+                      ...conn,
+                      name: extractedDbName,
+                      database: extractedDbName,
+                    });
+                  }
+                }
+              }
+            }
+          }
         } else {
           setErr(res?.error || "Failed to load schema");
         }

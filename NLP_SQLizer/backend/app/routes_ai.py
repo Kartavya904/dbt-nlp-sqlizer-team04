@@ -11,6 +11,7 @@ from .ai.nl2sql import (
 )
 from .models import ModelTrainer, SchemaQueryGenerator
 from .schema import crawl_schema
+from .mongodb_adapter import is_mongodb_url
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -25,13 +26,36 @@ def _engine_from_connection(connection: Optional[Dict[str, Any]]):
         # Method 1: full URL
         url_str = (connection.get("url") or "").strip()
         if url_str:
-            return create_engine(url_str, pool_pre_ping=True)
+            # Check for MongoDB - AI query generation for MongoDB is not yet implemented
+            url_lower = url_str.lower()
+            if url_lower.startswith("mongodb"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="MongoDB is supported for schema inspection, but AI query generation is currently only available for SQL databases. Please use SQL databases (PostgreSQL, MySQL, SQLite, SQL Server, Oracle) for AI-powered queries."
+                )
+            
+            # Handle SQLite specially
+            kwargs = {}
+            if url_str.startswith("sqlite"):
+                kwargs["connect_args"] = {"check_same_thread": False}
+            else:
+                kwargs["pool_pre_ping"] = True
+            return create_engine(url_str, **kwargs)
         
         # Method 2: discrete parts
         parts = connection.get("parts") or {}
         if parts:
+            driver = parts.get("DB_DRIVER", "postgresql+psycopg")
+            
+            # Handle SQLite specially
+            if driver and "sqlite" in driver.lower():
+                db_name = parts.get("DB_NAME") or ""
+                url_str = f"{driver}:///{db_name}"
+                return create_engine(url_str, connect_args={"check_same_thread": False})
+            
+            # For other databases, build URL from parts
             url = URL.create(
-                drivername=parts.get("DB_DRIVER", "postgresql+psycopg"),
+                drivername=driver,
                 username=parts.get("DB_USER") or None,
                 password=parts.get("DB_PASSWORD") or None,
                 host=parts.get("DB_HOST", "localhost"),
@@ -44,6 +68,13 @@ def _engine_from_connection(connection: Optional[Dict[str, Any]]):
     except HTTPException:
         raise
     except Exception as e:
+        # Check for SQLAlchemy dialect errors
+        error_str = str(e)
+        if "NoSuchModuleError" in error_str or "Can't load plugin" in error_str:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported database type. This application supports SQL databases (PostgreSQL, MySQL, SQLite, SQL Server, Oracle) and MongoDB (schema inspection only). Error: {error_str}"
+            )
         raise HTTPException(400, f"Invalid connection details: {e}")
 
 @router.post("/ask")
