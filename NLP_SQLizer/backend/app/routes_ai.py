@@ -4,14 +4,21 @@ from sqlalchemy import create_engine, URL
 from sqlalchemy.exc import SQLAlchemyError
 from pathlib import Path
 from typing import Optional, Dict, Any
+import json
 from .ai.nl2sql import (
     load_schema, select_relevant, ask_llm,
     ensure_select_only, ensure_tables_allowed, enforce_limit, finalize_sql,
     execute_readonly, explain, SQLSafetyError
 )
+from .ai.nl2mongo import (
+    load_mongodb_schema, select_relevant_mongo, ask_llm_mongo,
+    execute_mongodb_query, explain_mongodb_query
+)
+from .ai.llm import LLMNotConfigured
 from .models import ModelTrainer, SchemaQueryGenerator
 from .schema import crawl_schema
-from .mongodb_adapter import is_mongodb_url
+from .mongodb_adapter import is_mongodb_url, crawl_mongodb_schema
+from .settings import settings
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -26,13 +33,8 @@ def _engine_from_connection(connection: Optional[Dict[str, Any]]):
         # Method 1: full URL
         url_str = (connection.get("url") or "").strip()
         if url_str:
-            # Check for MongoDB - AI query generation for MongoDB is not yet implemented
-            url_lower = url_str.lower()
-            if url_lower.startswith("mongodb"):
-                raise HTTPException(
-                    status_code=400,
-                    detail="MongoDB is supported for schema inspection, but AI query generation is currently only available for SQL databases. Please use SQL databases (PostgreSQL, MySQL, SQLite, SQL Server, Oracle) for AI-powered queries."
-                )
+            # MongoDB is handled separately in the /ask endpoint
+            # No need to block it here
             
             # Handle SQLite specially
             kwargs = {}
@@ -80,23 +82,37 @@ def _engine_from_connection(connection: Optional[Dict[str, Any]]):
 @router.post("/ask")
 def ai_ask(payload: dict = Body(...)):
     """
-    Generate SQL query. Optionally uses trained model if available.
+    Generate SQL or MongoDB query. Optionally uses trained model if available.
+    Supports both SQL databases and MongoDB.
     
     Body: {
         "question": "...",
         "connection": { "url": "..." },
-        "use_trained_model": true,  # Try to use trained model first
+        "use_trained_model": true,  # Try to use trained model first (SQL only)
         "limit": 100,
         "timeout_ms": 5000
     }
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     q = (payload.get("question") or "").strip()
     if not q: raise HTTPException(400, "Missing 'question'")
     connection = payload.get("connection")
-    eng = _engine_from_connection(connection)
     limit = int(payload.get("limit") or 100)
     timeout_ms = int(payload.get("timeout_ms") or 5000)
     use_trained = payload.get("use_trained_model", True)
+    
+    # Check if this is a MongoDB connection
+    url_str = (connection.get("url") or "").strip() if connection else ""
+    is_mongo = url_str and is_mongodb_url(url_str)
+    
+    if is_mongo:
+        # Handle MongoDB query generation
+        return _handle_mongodb_query(q, url_str, limit, timeout_ms)
+    
+    # Handle SQL query generation
+    eng = _engine_from_connection(connection)
 
     # Try to use trained model if available
     if use_trained:
@@ -173,3 +189,80 @@ def ai_ask(payload: dict = Body(...)):
         "context": allowed,
         "method": "llm",
     }
+
+
+def _handle_mongodb_query(question: str, connection_url: str, limit: int, timeout_ms: int) -> Dict[str, Any]:
+    """
+    Handle MongoDB query generation and execution.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Load MongoDB schema
+        schema = load_mongodb_schema(connection_url)
+        if not schema:
+            raise HTTPException(400, "No collections found in MongoDB database")
+        
+        # Select relevant collections and fields
+        allowed = select_relevant_mongo(schema, question, k_collections=4)
+        if not allowed:
+            raise HTTPException(400, "No relevant collections/fields found")
+        
+        # Generate MongoDB query using LLM
+        try:
+            query_dict = ask_llm_mongo(question, allowed)
+        except LLMNotConfigured as e:
+            error_msg = str(e)
+            logger.error(f"LLM not configured or unavailable: {error_msg}")
+            raise HTTPException(
+                status_code=503,
+                detail=f"LLM service is not available. {error_msg} Please configure LLM_BASE_URL and LLM_MODEL in your .env file or ensure the LLM service is running."
+            )
+        except Exception as e:
+            logger.error(f"LLM query generation failed: {e}", exc_info=True)
+            error_msg = str(e)
+            # Check if it's a connection error
+            if "connection" in error_msg.lower() or "refused" in error_msg.lower():
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Could not connect to LLM service. Please ensure the LLM service is running at {settings.LLM_BASE_URL} and check your .env configuration."
+                )
+            raise HTTPException(400, f"Failed to generate MongoDB query: {error_msg}")
+        
+        # Ensure limit is set
+        query_dict["limit"] = min(limit, query_dict.get("limit", 100))
+        
+        # Execute query
+        try:
+            columns, rows, rowcount = execute_mongodb_query(connection_url, query_dict, timeout_ms)
+        except Exception as e:
+            logger.error(f"MongoDB query execution failed: {e}", exc_info=True)
+            raise HTTPException(400, f"Query execution failed: {e}")
+        
+        # Get query explanation
+        try:
+            explain_text = explain_mongodb_query(connection_url, query_dict)
+        except Exception as e:
+            logger.warning(f"Query explanation failed: {e}")
+            explain_text = ""
+        
+        # Format query for display
+        query_display = json.dumps(query_dict, indent=2)
+        
+        return {
+            "ok": True,
+            "sql": query_display,  # Using "sql" field for compatibility with frontend
+            "mongo_query": query_dict,  # Also include as mongo_query
+            "columns": columns,
+            "rows": rows,
+            "rowcount": rowcount,
+            "explain": explain_text,
+            "context": allowed,
+            "method": "llm_mongo",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"MongoDB query generation error: {e}", exc_info=True)
+        raise HTTPException(500, f"Internal error: {e}")

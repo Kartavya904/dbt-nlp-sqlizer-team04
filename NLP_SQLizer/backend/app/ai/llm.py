@@ -19,17 +19,30 @@ def chat_complete(system: str, user: str) -> str:
     Minimal chat-completions call against any OpenAI-compatible endpoint.
     Returns assistant text. Raise if not configured.
     """
-    with _client() as c:
-        data = {
-            "model": settings.LLM_MODEL,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "temperature": 0.1,
-            "max_tokens": 512,
-        }
-        r = c.post("/chat/completions", json=data)
-        r.raise_for_status()
-        j = r.json()
-        return j["choices"][0]["message"]["content"].strip()
+    import httpx
+    
+    try:
+        with _client() as c:
+            data = {
+                "model": settings.LLM_MODEL,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "temperature": 0.1,
+                "max_tokens": 512,
+            }
+            r = c.post("/chat/completions", json=data)
+            r.raise_for_status()
+            j = r.json()
+            return j["choices"][0]["message"]["content"].strip()
+    except httpx.ConnectError as e:
+        raise LLMNotConfigured(
+            f"Could not connect to LLM service at {settings.LLM_BASE_URL}. "
+            f"Please ensure the LLM service is running and LLM_BASE_URL is correct in your .env file."
+        )
+    except httpx.HTTPStatusError as e:
+        raise LLMNotConfigured(
+            f"LLM service returned error {e.response.status_code}: {e.response.text}. "
+            f"Please check your LLM configuration."
+        )

@@ -20,7 +20,7 @@ function MessageBubble({ m }) {
     >
       {m.role === "assistant" && m.sql ? (
         <>
-          <div className="sql-label">Proposed SQL</div>
+          <div className="sql-label">{m.sql?.startsWith('{') ? 'Proposed MongoDB Query' : 'Proposed SQL'}</div>
           <pre className="sql">{m.sql}</pre>
           {m.explain && (
             <>
@@ -78,7 +78,14 @@ export default function Chat() {
     {
       role: "assistant",
       content:
-        "Ask me things like:\n• Top 5 categories by total revenue\n• Count customers by gender\n• Average age of Electronics buyers\nI’ll propose safe SQL with LIMIT and run it after a quick plan check.",
+        "I can help you query your database using natural language! Try asking:\n\n" +
+        "• \"Show me all projects\"\n" +
+        "• \"Find documents where status is active\"\n" +
+        "• \"Count how many items are in each category\"\n" +
+        "• \"What are the top 10 most recent entries?\"\n" +
+        "• \"Get all records created in the last month\"\n" +
+        "• \"Find items matching a specific name or keyword\"\n\n" +
+        "I'll generate safe read-only queries (SQL or MongoDB) with automatic limits and run them for you.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -103,10 +110,12 @@ export default function Chat() {
   }
 
   function addAssistantSQL(payload) {
-    const { sql, explain, columns, rows } = payload;
+    const { sql, mongo_query, explain, columns, rows, rowcount } = payload;
+    // For MongoDB, use mongo_query if available, otherwise use sql
+    const query = mongo_query ? JSON.stringify(mongo_query, null, 2) : sql;
     setMessages((ms) => [
       ...ms,
-      { role: "assistant", sql, explain, columns, rows },
+      { role: "assistant", sql: query, explain, columns, rows, rowcount },
     ]);
   }
 
