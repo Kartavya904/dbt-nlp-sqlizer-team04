@@ -7,6 +7,6 @@ def make_engine(url: str | None = None) -> Engine:
     kwargs = {}
     if url.startswith("sqlite"):
         kwargs["connect_args"] = {"check_same_thread": False}
-    return create_engine(url, future=True, **kwargs)
+    return create_engine(url, **kwargs)
 
 engine = make_engine()

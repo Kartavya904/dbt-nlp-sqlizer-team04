@@ -64,8 +64,14 @@ function MessageBubble({ m }) {
 }
 
 export default function Chat() {
-  const { id } = useParams(); // encoded DB URL
-  const connectionUrl = useMemo(() => decodeURIComponent(id || ""), [id]);
+  const { id } = useParams(); // encoded DB connection ID
+  const connectionId = decodeURIComponent(id || "");
+  
+  // Get full URL from sessionStorage (has password) or fall back to connection ID
+  const connectionUrl = useMemo(() => {
+    const fullUrl = sessionStorage.getItem(`db_url_${connectionId}`);
+    return fullUrl || connectionId;
+  }, [connectionId]);
 
   // Chat state
   const [messages, setMessages] = useState([

@@ -29,10 +29,18 @@ v1 focuses on PostgreSQL. The design keeps adapters thin so MySQL/SQLite can be 
 - Two-step connect flow
   - Paste a database URL or enter host/port/db/user; password is collected separately when missing in the URL.
   - No credentials are persisted. We keep a non-secret "last connection profile" in a cookie/localStorage (e.g., host, port, db, user; no password).
-- Schema crawl & explorer
-  - Read tables, columns, types, PK/FK graph, light stats, and sample values.
+- Enhanced schema crawl & explorer
+  - Read tables, columns, types, PK/FK relationships, statistics, and sample values.
+  - Extract data distributions and value patterns for better understanding.
   - Expose `/schema/overview` so the frontend can render a small explorer.
+- **Schema-specific AI model training** (NEW)
+  - Train AI models that learn each database schema deeply.
+  - Models create embeddings for tables, columns, and relationships.
+  - Generate synthetic training data using LLM.
+  - Store trained models for fast, accurate query generation.
 - Natural-language to SQL
+  - Uses trained schema-specific models when available.
+  - Falls back to LLM-based generation for new schemas.
   - Candidate generation (3–5) using FK-aware join search and predicate mapping.
   - Ranking by intent coverage, join plausibility, and EXPLAIN estimates.
   - Returns SQL + results + a short explanation.
@@ -137,8 +145,13 @@ Note: Most drivers cannot prompt for a password. If a password is required and n
 - GET /healthz — service liveness
 - POST /connect/test — body: { dsn? | host, port, db, user, password } -> { ok: true }
 - GET /schema/overview — returns tables/columns, PK/FK edges, samples, synonyms
-- POST /chat/ask — body: { question: string } -> { sql, rows, columns, explanation, diagnostics }
-- POST /chat/ask/dryrun — like above but runs EXPLAIN only
+- POST /ai/ask — body: { question: string, connection: {...}, use_trained_model: true } -> { sql, rows, columns, explanation, method }
+- **Model Training API** (NEW)
+  - POST /models/train — train a model for a schema
+  - GET /models/list — list all trained models
+  - GET /models/{schema_id} — get model information
+  - POST /models/{schema_id}/query — generate query using specific model
+  - DELETE /models/{schema_id} — delete a model
 
 ---
 
@@ -175,14 +188,29 @@ ORDER BY s.student_id;
 
 ---
 
-## 10) Roadmap
+## 10) Model Training System
 
-- v1: Postgres only, read-only, small schemas.
-- v2: MySQL/SQLite adapters, better synonym mining, provenance (which joins/rows mattered most), caching of schema context, optional semantic reranker.
+The system now includes schema-specific model training. See `backend/MODEL_TRAINING.md` for detailed documentation.
+
+**Quick Start:**
+1. Connect to a database
+2. Train a model: `POST /models/train` with connection details
+3. Query using the trained model: `POST /ai/ask` with `use_trained_model: true`
+
+The trained model will:
+- Learn schema structure, relationships, and patterns
+- Create embeddings for semantic search
+- Generate more accurate SQL queries
+- Provide better explanations
+
+## 11) Roadmap
+
+- v1: Postgres only, read-only, small schemas, schema-specific model training.
+- v2: MySQL/SQLite adapters, better synonym mining, provenance (which joins/rows mattered most), caching of schema context, fine-tuning of transformers, active learning from user feedback.
 
 ---
 
-## 11) Team — Roles & Responsibilities
+## 12) Team — Roles & Responsibilities
 
 - Kartavya (Team Lead): Backend architecture, schema crawler, NL->SQL planner & ranking, safety/execution; integration and demo stability.
 - Kanav: Frontend React UX (connect flow, chat, voice input), telemetry & usability test; assists with schema prompt context.
@@ -190,7 +218,7 @@ ORDER BY s.student_id;
 
 ---
 
-## 12) Milestones (suggested weekly pacing)
+## 13) Milestones (suggested weekly pacing)
 
 1. Connect flow (URL/manual) + connection test; start schema crawler.
 2. Schema explorer UI; NL->SQL v1 (template/rules) with safe execution.
@@ -201,7 +229,7 @@ ORDER BY s.student_id;
 
 ---
 
-## 13) Repository hygiene
+## 14) Repository hygiene
 
 - Branches: feat/frontend-connect, feat/backend-schema, feat/planner, feat/safety-exec, etc.
 - PRs require lint + tests to pass.
@@ -210,6 +238,6 @@ ORDER BY s.student_id;
 
 ---
 
-## 14) License
+## 15) License
 
 MIT — see LICENSE.

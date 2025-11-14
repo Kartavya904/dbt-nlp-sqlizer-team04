@@ -39,6 +39,8 @@ export default function ConnectModal({ open, onClose, onConnected }) {
         setMsg("Connected ✔");
         const parsed = parseUrl(currentUrl);
         const id = connectionId(parsed);
+        // Store full URL with password in sessionStorage for this session
+        sessionStorage.setItem(`db_url_${id}`, currentUrl);
         const entry = {
           id,
           name: parsed?.DB_NAME || id,

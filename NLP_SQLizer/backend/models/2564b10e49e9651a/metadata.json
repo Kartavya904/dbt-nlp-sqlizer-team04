@@ -1,0 +1,743 @@
+{
+  "tables": {
+    "customer": {
+      "name": "customer",
+      "columns": [
+        {
+          "name": "customerid",
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "gender",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "age",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "paymentmethod",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [
+        "customerid"
+      ],
+      "foreign_keys": [],
+      "sample_rows": [],
+      "row_count": 5,
+      "indexes": []
+    },
+    "sales": {
+      "name": "sales",
+      "columns": [
+        {
+          "name": "invoiceno",
+          "type": "VARCHAR(10)",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "customerid",
+          "type": "VARCHAR(10)",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "category",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "quantity",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "price",
+          "type": "NUMERIC(10, 2)",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "invoicedate",
+          "type": "DATE",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "shoppingmall",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [
+        "invoiceno"
+      ],
+      "foreign_keys": [],
+      "sample_rows": [],
+      "row_count": 6,
+      "indexes": []
+    },
+    "students": {
+      "name": "students",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "gender",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "age",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "sample_rows": [],
+      "row_count": 0,
+      "indexes": []
+    },
+    "enrollments": {
+      "name": "enrollments",
+      "columns": [
+        {
+          "name": "student_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": true,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "course_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": true,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "term",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "year",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "grade_letter",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "numeric_score",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [],
+      "foreign_keys": [
+        "course_id",
+        "student_id"
+      ],
+      "sample_rows": [],
+      "row_count": 0,
+      "indexes": []
+    },
+    "courses": {
+      "name": "courses",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "title",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "year",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "sample_rows": [],
+      "row_count": 0,
+      "indexes": []
+    },
+    "customers": {
+      "name": "customers",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "gender",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "age",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "sample_rows": [],
+      "row_count": 0,
+      "indexes": []
+    },
+    "orders": {
+      "name": "orders",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "customer_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": true,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "order_date",
+          "type": "DATE",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "total",
+          "type": "NUMERIC",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        "customer_id"
+      ],
+      "sample_rows": [],
+      "row_count": 0,
+      "indexes": []
+    },
+    "order_items": {
+      "name": "order_items",
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": true,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "item_id",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": true,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "qty",
+          "type": "INTEGER",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [],
+      "foreign_keys": [
+        "item_id",
+        "order_id"
+      ],
+      "sample_rows": [],
+      "row_count": 0,
+      "indexes": []
+    },
+    "items": {
+      "name": "items",
+      "columns": [
+        {
+          "name": "id",
+          "type": "INTEGER",
+          "nullable": false,
+          "is_primary_key": true,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "category",
+          "type": "TEXT",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "price",
+          "type": "NUMERIC",
+          "nullable": true,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [],
+      "sample_rows": [],
+      "row_count": 0,
+      "indexes": []
+    }
+  },
+  "relationships": [
+    {
+      "from_table": "enrollments",
+      "from_column": "course_id",
+      "to_table": "courses",
+      "to_column": "id"
+    },
+    {
+      "from_table": "enrollments",
+      "from_column": "student_id",
+      "to_table": "students",
+      "to_column": "id"
+    },
+    {
+      "from_table": "orders",
+      "from_column": "customer_id",
+      "to_table": "customers",
+      "to_column": "id"
+    },
+    {
+      "from_table": "order_items",
+      "from_column": "item_id",
+      "to_table": "items",
+      "to_column": "id"
+    },
+    {
+      "from_table": "order_items",
+      "from_column": "order_id",
+      "to_table": "orders",
+      "to_column": "id"
+    }
+  ],
+  "synonyms": {
+    "customer": [
+      "customer",
+      "customers"
+    ],
+    "customerid": [
+      "customerid"
+    ],
+    "gender": [
+      "gender"
+    ],
+    "age": [
+      "age"
+    ],
+    "paymentmethod": [
+      "paymentmethod"
+    ],
+    "sales": [
+      "sales",
+      "sale"
+    ],
+    "sale": [
+      "sales"
+    ],
+    "invoiceno": [
+      "invoiceno"
+    ],
+    "category": [
+      "category"
+    ],
+    "quantity": [
+      "quantity"
+    ],
+    "price": [
+      "price"
+    ],
+    "invoicedate": [
+      "invoicedate"
+    ],
+    "shoppingmall": [
+      "shoppingmall"
+    ],
+    "students": [
+      "students",
+      "student"
+    ],
+    "student": [
+      "students"
+    ],
+    "id": [
+      "id"
+    ],
+    "name": [
+      "name"
+    ],
+    "enrollments": [
+      "enrollments",
+      "enrollment"
+    ],
+    "enrollment": [
+      "enrollments"
+    ],
+    "student_id": [
+      "student id",
+      "student"
+    ],
+    "course_id": [
+      "course id",
+      "course"
+    ],
+    "term": [
+      "term"
+    ],
+    "year": [
+      "year"
+    ],
+    "grade_letter": [
+      "grade letter"
+    ],
+    "numeric_score": [
+      "numeric score"
+    ],
+    "courses": [
+      "courses",
+      "course"
+    ],
+    "course": [
+      "courses"
+    ],
+    "title": [
+      "title"
+    ],
+    "customers": [
+      "customers",
+      "customer"
+    ],
+    "orders": [
+      "orders",
+      "order"
+    ],
+    "order": [
+      "orders"
+    ],
+    "customer_id": [
+      "customer id",
+      "customer"
+    ],
+    "order_date": [
+      "order date"
+    ],
+    "total": [
+      "total"
+    ],
+    "order_items": [
+      "order items",
+      "order_item"
+    ],
+    "order_item": [
+      "order_items"
+    ],
+    "order_id": [
+      "order id",
+      "order"
+    ],
+    "item_id": [
+      "item id",
+      "item"
+    ],
+    "qty": [
+      "qty"
+    ],
+    "items": [
+      "items",
+      "item"
+    ],
+    "item": [
+      "items"
+    ]
+  }
+}

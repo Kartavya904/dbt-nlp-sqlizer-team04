@@ -1,4 +1,5 @@
 # app/main.py
+import logging
 from typing import Optional, Dict, Any
 
 from fastapi import FastAPI, Body, HTTPException
@@ -10,6 +11,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .db import engine as default_engine
 from .settings import settings
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 from .ai.nl2sql import (
     load_schema, select_relevant, ask_llm,
     ensure_select_only, enforce_limit, ensure_tables_allowed, finalize_sql,
@@ -18,6 +25,7 @@ from .ai.nl2sql import (
 from .ai.llm import LLMNotConfigured
 
 from .routes_ai import router as ai_router
+from .routes_models import router as models_router
 
 
 app = FastAPI(title="NLP_SQLizer Backend", version="0.1.0")
@@ -46,6 +54,7 @@ def healthz():
     return {"ok": True, "service": "backend", "message": "healthy"}
 
 app.include_router(ai_router)
+app.include_router(models_router)
 
 # ---------- Helpers ----------
 
@@ -54,19 +63,25 @@ def _engine_from_payload(payload: Optional[Dict[str, Any]]):
     If a payload with connection details is provided, build a temporary Engine.
     Otherwise return None so we fall back to the default Engine.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     if not payload:
+        logger.info("No payload provided, using default engine")
         return None
 
     try:
         # Method 1: full URL
         url_str = (payload.get("url") or "").strip()
         if url_str:
+            logger.info(f"Creating engine from URL in payload")
             # pool_pre_ping keeps long-lived servers from holding dead sockets
-            return create_engine(url_str, future=True, pool_pre_ping=True)
+            return create_engine(url_str, pool_pre_ping=True)
 
         # Method 2: discrete parts
         parts = payload.get("parts") or {}
         if parts:
+            logger.info(f"Creating engine from parts: {list(parts.keys())}")
             url = URL.create(
                 drivername=parts.get("DB_DRIVER", "postgresql+psycopg"),
                 username=parts.get("DB_USER") or None,
@@ -75,9 +90,14 @@ def _engine_from_payload(payload: Optional[Dict[str, Any]]):
                 port=int(parts["DB_PORT"]) if parts.get("DB_PORT") not in (None, "") else None,
                 database=parts.get("DB_NAME") or None,
             )
-            return create_engine(url, future=True, pool_pre_ping=True)
+            logger.info(f"URL created from parts: {url.render_as_string(hide_password=True)}")
+            return create_engine(url, pool_pre_ping=True)
+        
+        # Empty payload - fall back to default
+        logger.info("Payload provided but no 'url' or 'parts' found, using default engine")
     except Exception as e:
         # Bad URL or malformed parts → 400
+        logger.error(f"Error creating engine from payload: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Invalid connection details: {e}")
 
     return None
@@ -125,8 +145,14 @@ def schema_overview(payload: Optional[Dict[str, Any]] = Body(default=None)):
       { ok, dialect, tables: [ { table, columns: [ { name, type, nullable } ] } ] }
     Accepts the same payload as /connect/test or falls back to the default engine.
     """
-    eng = _pick_engine(payload)
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
+        logger.info(f"Received payload for /schema/overview: {payload}")
+        eng = _pick_engine(payload)
+        logger.info(f"Engine selected: {_safe_url_str(eng)}")
+        
         insp = inspect(eng)
         tables = []
         for tname in insp.get_table_names():
@@ -138,13 +164,21 @@ def schema_overview(payload: Optional[Dict[str, Any]] = Body(default=None)):
                     "nullable": bool(c.get("nullable", True)),
                 })
             tables.append({"table": tname, "columns": cols})
+        
+        logger.info(f"Schema overview generated: {len(tables)} tables")
         return {
             "ok": True,
             "dialect": eng.dialect.name,
             "tables": tables,
         }
+    except HTTPException:
+        raise
     except SQLAlchemyError as e:
+        logger.error(f"Schema inspection failed: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=f"Schema inspection failed: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error in /schema/overview: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal error: {e}")
 
 @app.post("/ai/nl2sql")
 def ai_nl2sql(payload: dict = Body(...)):
