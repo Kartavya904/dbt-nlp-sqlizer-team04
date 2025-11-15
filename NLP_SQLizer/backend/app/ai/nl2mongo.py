@@ -61,27 +61,10 @@ def select_relevant_mongo(schema: Dict[str, List[Dict[str, Any]]], question: str
 
 # ---------- Prompting ----------
 
-MONGO_SYS = """You generate a single, safe, READ-ONLY MongoDB query as JSON.
-Rules:
-- Return ONE valid JSON object only, no backticks, no prose, no markdown.
-- The JSON must have this structure:
-  {
-    "collection": "collection_name",
-    "pipeline": [...]  // MongoDB aggregation pipeline (preferred)
-    OR
-    "find": {...},     // MongoDB find query (simpler queries)
-    "projection": {...},  // Optional: fields to return
-    "sort": {...},     // Optional: sort order
-    "limit": 100       // Always limit to 100 or less
-  }
-- Use aggregation pipeline for: filtering, grouping, sorting, counting, aggregations
-- Use find query for: simple filtering and retrieval
-- Only use READ operations. Never use insert, update, delete, or write operations.
-- Use only the collections and fields given.
-- Always include limit: 100 unless the query is an aggregate that returns <= 100 rows naturally.
-- For text search, use $regex with case-insensitive option: {"field": {"$regex": "pattern", "$options": "i"}}
-- For aggregations, use $group, $sum, $avg, $count, etc.
-"""
+MONGO_SYS = """Generate ONLY MongoDB query JSON. NO explanations, NO markdown, NO backticks.
+
+Format: {"collection": "name", "pipeline": [...]} OR {"collection": "name", "find": {...}, "limit": 100}
+Use pipeline for aggregations/grouping. Use find for simple queries. READ-only. LIMIT 100."""
 
 def render_mongo_context(slice_: Dict[str, List[str]]) -> str:
     lines = []
@@ -97,12 +80,9 @@ def ask_llm_mongo(question: str, slice_: Dict[str, List[str]]) -> Dict[str, Any]
     Returns a dictionary with collection, pipeline/find, etc.
     """
     ctx = render_mongo_context(slice_)
-    user = f"""Question: {question}
-
-Collections and fields you may use:
-{ctx}
-
-Respond with ONE valid JSON object containing the MongoDB query."""
+    user = f"""Q: {question}
+Schema: {ctx}
+Generate MongoDB query JSON only."""
     
     response = chat_complete(MONGO_SYS, user)
     

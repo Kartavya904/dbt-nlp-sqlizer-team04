@@ -1,0 +1,394 @@
+{
+  "tables": {
+    "hotels": {
+      "name": "hotels",
+      "columns": [
+        {
+          "name": "travelcode",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "usercode",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "hname",
+          "type": "VARCHAR",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "place",
+          "type": "VARCHAR",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "days",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "hprice",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "total",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "hdate",
+          "type": "DATE",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [],
+      "foreign_keys": [],
+      "sample_rows": [],
+      "row_count": 40552,
+      "indexes": []
+    },
+    "users": {
+      "name": "users",
+      "columns": [
+        {
+          "name": "usercode",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "company",
+          "type": "VARCHAR",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "name",
+          "type": "VARCHAR",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "gender",
+          "type": "VARCHAR",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "age",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [],
+      "foreign_keys": [],
+      "sample_rows": [],
+      "row_count": 1340,
+      "indexes": []
+    },
+    "flights": {
+      "name": "flights",
+      "columns": [
+        {
+          "name": "travelcode",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "usercode",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "fcity",
+          "type": "VARCHAR",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "tcity",
+          "type": "VARCHAR",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "flighttype",
+          "type": "VARCHAR",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "fprice",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "time",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "distance",
+          "type": "NUMERIC",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "agency",
+          "type": "VARCHAR",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        },
+        {
+          "name": "fdate",
+          "type": "DATE",
+          "nullable": false,
+          "is_primary_key": false,
+          "is_foreign_key": false,
+          "unique_values": null,
+          "min_value": null,
+          "max_value": null,
+          "avg_value": null,
+          "distinct_count": null
+        }
+      ],
+      "primary_key": [],
+      "foreign_keys": [],
+      "sample_rows": [],
+      "row_count": 271888,
+      "indexes": []
+    }
+  },
+  "relationships": [],
+  "synonyms": {
+    "hotels": [
+      "hotels",
+      "hotel"
+    ],
+    "hotel": [
+      "hotels"
+    ],
+    "travelcode": [
+      "travelcode"
+    ],
+    "usercode": [
+      "usercode"
+    ],
+    "hname": [
+      "hname"
+    ],
+    "place": [
+      "place"
+    ],
+    "days": [
+      "days"
+    ],
+    "hprice": [
+      "hprice"
+    ],
+    "total": [
+      "total"
+    ],
+    "hdate": [
+      "hdate"
+    ],
+    "users": [
+      "users",
+      "user"
+    ],
+    "user": [
+      "users"
+    ],
+    "company": [
+      "company"
+    ],
+    "name": [
+      "name"
+    ],
+    "gender": [
+      "gender"
+    ],
+    "age": [
+      "age"
+    ],
+    "flights": [
+      "flights",
+      "flight"
+    ],
+    "flight": [
+      "flights"
+    ],
+    "fcity": [
+      "fcity"
+    ],
+    "tcity": [
+      "tcity"
+    ],
+    "flighttype": [
+      "flighttype"
+    ],
+    "fprice": [
+      "fprice"
+    ],
+    "time": [
+      "time"
+    ],
+    "distance": [
+      "distance"
+    ],
+    "agency": [
+      "agency"
+    ],
+    "fdate": [
+      "fdate"
+    ]
+  }
+}

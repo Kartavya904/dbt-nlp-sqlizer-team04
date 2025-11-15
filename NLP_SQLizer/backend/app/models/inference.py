@@ -163,22 +163,31 @@ class SchemaQueryGenerator:
             
             schema_context = self._build_schema_context(relevant)
             
-            prompt = f"""Generate {max_candidates} different SQL queries for this question: "{question}"
-
-Schema context:
-{schema_context}
-
-Rules:
-- Only SELECT queries
-- Use explicit JOINs based on foreign key relationships
-- Include appropriate WHERE, GROUP BY, ORDER BY clauses
-- Always include LIMIT 100
-- Return {max_candidates} queries, one per line, prefixed with "QUERY:"
+            # Detect if aggregation is needed
+            from ..ai.nl2sql import _detect_aggregation_needed
+            needs_agg = _detect_aggregation_needed(question)
+            agg_instructions = ""
+            if needs_agg:
+                agg_instructions = """
+CRITICAL: This question requires aggregation. You MUST include:
+- AVG(), COUNT(), SUM(), MAX(), or MIN() functions when the question asks for averages, counts, sums, etc.
+- GROUP BY clause when grouping is requested, OR window functions (AVG() OVER (PARTITION BY ...)) when individual rows are needed along with aggregated values.
+- Examples:
+  * "average age grouped by company" → SELECT company, AVG(age) FROM users GROUP BY company
+  * "users with average age per company" → SELECT name, company, age, AVG(age) OVER (PARTITION BY company) as avg_age FROM users
 """
             
+            prompt = f"""Q: {question}
+{agg_instructions}
+Schema: {schema_context}
+Generate {max_candidates} SQL queries, one per line, prefixed "QUERY:". Include aggregations/joins as needed. LIMIT 100."""
+            
+            # Use longer timeout for candidate generation (can be slower)
             response = chat_complete(
-                "You are a SQL expert that generates safe, read-only queries.",
-                prompt
+                "Generate ONLY SQL SELECT queries. NO explanations.",
+                prompt,
+                timeout=90.0,  # 90 seconds for candidate generation
+                max_tokens=512  # Reduced for speed
             )
             
             # Parse queries from response
@@ -189,7 +198,10 @@ Rules:
                         candidates.append((sql, {"method": "llm", "confidence": 0.8}))
             
         except Exception as e:
-            print(f"Error generating candidates with LLM: {e}")
+            # Log error but don't fail - fall back to template candidates
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Error generating candidates with LLM: {e}. Falling back to template-based candidates.")
         
         # Generate template-based candidates as fallback
         if not candidates:

@@ -8,7 +8,8 @@ import json
 from .ai.nl2sql import (
     load_schema, select_relevant, ask_llm,
     ensure_select_only, ensure_tables_allowed, enforce_limit, finalize_sql,
-    execute_readonly, explain, SQLSafetyError
+    execute_readonly, explain, SQLSafetyError, _validate_aggregation_requirements,
+    _validate_query_structure
 )
 from .ai.nl2mongo import (
     load_mongodb_schema, select_relevant_mongo, ask_llm_mongo,
@@ -129,9 +130,11 @@ def ai_ask(payload: dict = Body(...)):
                 explanation = generator.explain_query(sql_final, q)
                 
                 # Validate and execute
+                _validate_aggregation_requirements(q, sql_final)
                 expr = ensure_select_only(sql_final)
                 expr = enforce_limit(expr, limit)
                 sql_final = finalize_sql(expr)
+                _validate_aggregation_requirements(q, sql_final)
                 
                 with eng.connect() as conn:
                     plan = explain(conn, sql_final) or ""
@@ -152,9 +155,12 @@ def ai_ask(payload: dict = Body(...)):
                     "confidence": gen_metadata.get("confidence", 0.5),
                     "method": "trained_model",
                 }
+        except SQLSafetyError as e:
+            # Validation error - fall through to LLM-based generation
+            logger.warning(f"Trained model validation failed, falling back to LLM: {e}")
         except Exception as e:
-            # Fall through to LLM-based generation
-            print(f"Trained model failed, falling back to LLM: {e}")
+            # Other errors - fall through to LLM-based generation
+            logger.warning(f"Trained model failed, falling back to LLM: {e}")
 
     # Fallback to original LLM-based approach
     schema = load_schema(eng)
@@ -162,11 +168,17 @@ def ai_ask(payload: dict = Body(...)):
     if not allowed: raise HTTPException(400, "No relevant tables/columns found")
 
     try:
-        draft = ask_llm(q, allowed)
+        draft = ask_llm(q, allowed, use_intent_analysis=True)
+        # Validate aggregation requirements before parsing
+        _validate_aggregation_requirements(q, draft)
+        _validate_query_structure(q, draft, allowed)
         expr = ensure_select_only(draft)
         ensure_tables_allowed(expr, allowed)
         expr = enforce_limit(expr, limit)
         sql_final = finalize_sql(expr)
+        # Validate again after finalization (in case parsing changed something)
+        _validate_aggregation_requirements(q, sql_final)
+        _validate_query_structure(q, sql_final, allowed)
     except SQLSafetyError as e:
         raise HTTPException(400, f"Validation failed: {e}")
 
