@@ -70,14 +70,18 @@ Rules:
 - Aggregations: Use AVG/COUNT/SUM with GROUP BY when asked. For "along with" use window functions: AVG() OVER (PARTITION BY ...)
 - WHERE for filters, ORDER BY for sorting, LIMIT 100 (or specified number)
 - DISTINCT for unique values
-- Use only provided tables/columns
-- PostgreSQL syntax"""
+- Use ONLY the EXACT column names provided below - do NOT invent or modify column names
+- PostgreSQL syntax (lowercase table and column names)
+- CRITICAL: Use the exact column names from the schema - e.g., "fcity" not "fromCity", "tcity" not "toCity", "fprice" not "price"
+"""
 
 def render_context(slice_: Dict[str, List[str]]) -> str:
-    lines = []
+    """Render schema context with emphasis on exact column names"""
+    lines = ["Available tables and their EXACT column names (use these exactly as shown):"]
     for t, cols in slice_.items():
         col_list = ", ".join(cols)
-        lines.append(f"- {t}({col_list})")
+        lines.append(f"  {t}: {col_list}")
+    lines.append("\nIMPORTANT: Use these exact column names in your query. Do not use variations like 'fromCity', 'toCity', 'price', etc.")
     return "\n".join(lines)
 
 def _extract_sql_from_response(response: str) -> str:
@@ -327,13 +331,20 @@ def _jsonable(v):
 
 def execute_readonly(conn: Connection, sql: str, timeout_ms: int = 5000):
     # Keep queries safe/fast
+    # Note: Connection should be from a fresh context manager to avoid transaction issues
     try:
         # Postgres: short statement timeout
-        conn.exec_driver_sql(f"SET LOCAL statement_timeout = {timeout_ms}")
-    except Exception:
-        pass
+        # SET LOCAL only affects the current transaction, so this is safe
+        try:
+            conn.exec_driver_sql(f"SET LOCAL statement_timeout = {timeout_ms}")
+        except Exception:
+            # If SET LOCAL fails, continue anyway (might not be PostgreSQL)
+            pass
 
-    res = conn.exec_driver_sql(sql)
+        res = conn.exec_driver_sql(sql)
+    except Exception as e:
+        # Re-raise the exception - let the context manager handle rollback
+        raise
 
     # Columns
     cols = []
@@ -350,9 +361,14 @@ def execute_readonly(conn: Connection, sql: str, timeout_ms: int = 5000):
 
 
 def explain(conn: Connection, sql: str) -> str:
+    """
+    Run EXPLAIN on a query. Returns empty string on error.
+    Note: Uses a fresh connection to avoid transaction conflicts.
+    """
     try:
         txt = conn.exec_driver_sql(f"EXPLAIN {sql}").fetchall()
         # EXPLAIN (FORMAT TEXT) returns rows of text in PG
         return "\n".join(r[0] for r in txt)
     except Exception:
+        # Return empty string on error - the context manager will handle rollback
         return ""

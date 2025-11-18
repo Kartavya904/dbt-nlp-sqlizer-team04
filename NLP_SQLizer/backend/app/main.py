@@ -82,6 +82,15 @@ def _engine_from_payload(payload: Optional[Dict[str, Any]]):
                 # MongoDB is handled separately in routes, return None to indicate special handling
                 return None
             
+            # Check for unencoded special characters in password (multiple @ symbols)
+            # This indicates the password contains @ which needs to be URL-encoded as %40
+            if url_str.count("@") > 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Password contains '@' symbol which must be URL-encoded as '%40'. "
+                           "Example: postgresql://user:pass%40word@host/db"
+                )
+            
             logger.info(f"Creating engine from URL in payload: {url_str[:50]}...")
             
             # Handle SQLite specially (no pool_pre_ping needed)

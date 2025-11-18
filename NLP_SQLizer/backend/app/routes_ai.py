@@ -37,6 +37,14 @@ def _engine_from_connection(connection: Optional[Dict[str, Any]]):
             # MongoDB is handled separately in the /ask endpoint
             # No need to block it here
             
+            # Check for unencoded special characters in password (multiple @ symbols)
+            if url_str.count("@") > 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Password contains '@' symbol which must be URL-encoded as '%40'. "
+                           "Example: postgresql://user:pass%40word@host/db"
+                )
+            
             # Handle SQLite specially
             kwargs = {}
             if url_str.startswith("sqlite"):
@@ -86,6 +94,8 @@ def ai_ask(payload: dict = Body(...)):
     Generate SQL or MongoDB query. Optionally uses trained model if available.
     Supports both SQL databases and MongoDB.
     
+    Always returns a response (never raises unhandled errors).
+    
     Body: {
         "question": "...",
         "connection": { "url": "..." },
@@ -95,25 +105,69 @@ def ai_ask(payload: dict = Body(...)):
     }
     """
     import logging
+    import traceback
     logger = logging.getLogger(__name__)
     
-    q = (payload.get("question") or "").strip()
-    if not q: raise HTTPException(400, "Missing 'question'")
-    connection = payload.get("connection")
-    limit = int(payload.get("limit") or 100)
-    timeout_ms = int(payload.get("timeout_ms") or 5000)
-    use_trained = payload.get("use_trained_model", True)
+    try:
+        q = (payload.get("question") or "").strip()
+        if not q:
+            return {
+                "ok": False,
+                "error": "Missing question",
+                "message": "Please provide a question to query the database.",
+                "sql": None,
+                "columns": [],
+                "rows": [],
+                "rowcount": 0,
+            }
+        connection = payload.get("connection")
+        if not connection:
+            return {
+                "ok": False,
+                "error": "Missing connection",
+                "message": "Database connection information is required.",
+                "sql": None,
+                "columns": [],
+                "rows": [],
+                "rowcount": 0,
+            }
+        limit = int(payload.get("limit") or 100)
+        timeout_ms = int(payload.get("timeout_ms") or 5000)
+        use_trained = payload.get("use_trained_model", True)
+    except Exception as e:
+        logger.error(f"Invalid request payload: {e}")
+        return {
+            "ok": False,
+            "error": "Invalid request",
+            "message": f"Request validation failed: {str(e)}",
+            "sql": None,
+            "columns": [],
+            "rows": [],
+            "rowcount": 0,
+        }
     
-    # Check if this is a MongoDB connection
-    url_str = (connection.get("url") or "").strip() if connection else ""
-    is_mongo = url_str and is_mongodb_url(url_str)
-    
-    if is_mongo:
-        # Handle MongoDB query generation
-        return _handle_mongodb_query(q, url_str, limit, timeout_ms)
-    
-    # Handle SQL query generation
-    eng = _engine_from_connection(connection)
+    try:
+        # Check if this is a MongoDB connection
+        url_str = (connection.get("url") or "").strip() if connection else ""
+        is_mongo = url_str and is_mongodb_url(url_str)
+        
+        if is_mongo:
+            # Handle MongoDB query generation
+            return _handle_mongodb_query(q, url_str, limit, timeout_ms)
+        
+        # Handle SQL query generation
+        eng = _engine_from_connection(connection)
+    except Exception as e:
+        logger.error(f"Connection setup failed: {e}", exc_info=True)
+        return {
+            "ok": False,
+            "error": "Connection failed",
+            "message": f"Failed to establish database connection: {str(e)}",
+            "sql": None,
+            "columns": [],
+            "rows": [],
+            "rowcount": 0,
+        }
 
     # Try to use trained model if available
     if use_trained:
@@ -136,13 +190,22 @@ def ai_ask(payload: dict = Body(...)):
                 sql_final = finalize_sql(expr)
                 _validate_aggregation_requirements(q, sql_final)
                 
-                with eng.connect() as conn:
-                    plan = explain(conn, sql_final) or ""
+                # Use separate connections to avoid transaction conflicts
+                with eng.connect() as conn_explain:
+                    plan = explain(conn_explain, sql_final) or ""
                     import re
                     m = re.search(r"rows=(\d+)", plan)
                     if m and int(m.group(1)) > 100_000:
                         raise HTTPException(400, "Plan too large; refine filters or narrow scope.")
-                    cols, rows = execute_readonly(conn, sql_final, timeout_ms)
+                
+                # Execute query in a separate connection
+                try:
+                    with eng.connect() as conn_exec:
+                        cols, rows = execute_readonly(conn_exec, sql_final, timeout_ms)
+                except Exception as e:
+                    # Execution failed with trained model - fall through to LLM
+                    logger.warning(f"Trained model execution failed, falling back to LLM: {e}")
+                    raise  # Re-raise to trigger fallback to LLM
                 
                 return {
                     "ok": True,
@@ -163,11 +226,20 @@ def ai_ask(payload: dict = Body(...)):
             logger.warning(f"Trained model failed, falling back to LLM: {e}")
 
     # Fallback to original LLM-based approach
-    schema = load_schema(eng)
-    allowed = select_relevant(schema, q)  # {table:[cols]}
-    if not allowed: raise HTTPException(400, "No relevant tables/columns found")
-
     try:
+        schema = load_schema(eng)
+        allowed = select_relevant(schema, q)  # {table:[cols]}
+        if not allowed:
+            return {
+                "ok": False,
+                "error": "No relevant tables found",
+                "message": "Could not find any tables or columns relevant to your question. Please rephrase or check the database schema.",
+                "sql": None,
+                "columns": [],
+                "rows": [],
+                "rowcount": 0,
+            }
+
         draft = ask_llm(q, allowed, use_intent_analysis=True)
         # Validate aggregation requirements before parsing
         _validate_aggregation_requirements(q, draft)
@@ -180,17 +252,59 @@ def ai_ask(payload: dict = Body(...)):
         _validate_aggregation_requirements(q, sql_final)
         _validate_query_structure(q, sql_final, allowed)
     except SQLSafetyError as e:
-        raise HTTPException(400, f"Validation failed: {e}")
+        logger.error(f"Validation failed: {e}")
+        return {
+            "ok": False,
+            "error": "Query validation failed",
+            "message": f"The generated query failed safety validation: {str(e)}",
+            "sql": None,
+            "columns": [],
+            "rows": [],
+            "rowcount": 0,
+        }
+    except Exception as e:
+        logger.error(f"Query generation failed: {e}", exc_info=True)
+        return {
+            "ok": False,
+            "error": "Query generation failed",
+            "message": f"Failed to generate query: {str(e)}",
+            "sql": None,
+            "columns": [],
+            "rows": [],
+            "rowcount": 0,
+        }
 
     # EXPLAIN gate (simple but effective)
-    with eng.connect() as conn:
-        plan = explain(conn, sql_final) or ""
+    # Use separate connections to avoid transaction conflicts
+    with eng.connect() as conn_explain:
+        plan = explain(conn_explain, sql_final) or ""
         # Block obviously large plans
         import re
         m = re.search(r"rows=(\d+)", plan)
         if m and int(m.group(1)) > 100_000:
             raise HTTPException(400, "Plan too large; refine filters or narrow scope.")
-        cols, rows = execute_readonly(conn, sql_final, timeout_ms)
+    
+    # Execute query in a separate connection
+    try:
+        with eng.connect() as conn_exec:
+            cols, rows = execute_readonly(conn_exec, sql_final, timeout_ms)
+    except Exception as e:
+        # Database execution error - return user-friendly message
+        error_msg = str(e)
+        logger.error(f"Query execution failed: {error_msg}", exc_info=True)
+        return {
+            "ok": False,
+            "error": "Query execution failed",
+            "message": f"The generated query failed to execute: {error_msg}",
+            "sql": sql_final,
+            "columns": [],
+            "rows": [],
+            "rowcount": 0,
+            "explain": plan,
+            "context": allowed,
+            "method": "llm",
+        }
+    
     return {
         "ok": True,
         "sql": sql_final,

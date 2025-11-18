@@ -180,6 +180,9 @@ CRITICAL: This question requires aggregation. You MUST include:
             prompt = f"""Q: {question}
 {agg_instructions}
 Schema: {schema_context}
+
+⚠️ CRITICAL: Use EXACT column names from schema above (e.g., "fcity" NOT "fromCity", "fprice" NOT "price").
+
 Generate {max_candidates} SQL queries, one per line, prefixed "QUERY:". Include aggregations/joins as needed. LIMIT 100."""
             
             # Use longer timeout for candidate generation (can be slower)

@@ -35,6 +35,14 @@ def _engine_from_connection(connection: Optional[Dict[str, Any]]):
             # MongoDB is handled separately in the train endpoint
             # No need to block it here
             
+            # Check for unencoded special characters in password (multiple @ symbols)
+            if url_str.count("@") > 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Password contains '@' symbol which must be URL-encoded as '%40'. "
+                           "Example: postgresql://user:pass%40word@host/db"
+                )
+            
             logger.info(f"Creating engine from URL: {url_str[:50]}...")
             
             # Handle SQLite specially

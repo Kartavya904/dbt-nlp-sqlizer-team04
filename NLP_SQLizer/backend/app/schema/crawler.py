@@ -206,10 +206,18 @@ def crawl_schema(engine: Engine, sample_size: int = 100) -> SchemaMetadata:
                     sample_result = conn.exec_driver_sql(sample_query)
                     rows = sample_result.fetchall()
                     
-                    if rows and sample_result.cursor.description:
-                        col_names = [desc[0] for desc in sample_result.cursor.description]
-                        for row in rows:
-                            table_info.sample_rows.append(dict(zip(col_names, row)))
+                    # Get column names from cursor description
+                    if rows:
+                        cursor = getattr(sample_result, 'cursor', None)
+                        if cursor and hasattr(cursor, 'description') and cursor.description:
+                            col_names = [desc[0] for desc in cursor.description]
+                            for row in rows:
+                                table_info.sample_rows.append(dict(zip(col_names, row)))
+                        else:
+                            # Fallback: use column metadata if cursor.description not available
+                            col_names = [col.name for col in table_info.columns]
+                            for row in rows:
+                                table_info.sample_rows.append(dict(zip(col_names, row)))
                     
                     # Column statistics
                     for col_info in table_info.columns:

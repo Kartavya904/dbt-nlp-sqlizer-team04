@@ -356,7 +356,11 @@ def _generate_example_pattern(intent: QueryIntent, functions: List[str], clauses
 def build_enhanced_prompt(question: str, schema_context: Dict[str, List[str]], intent_analysis: QueryIntentAnalysis) -> str:
     """Build an enhanced prompt with intent-specific guidance"""
     
-    context_str = "\n".join([f"- {t}({', '.join(cols)})" for t, cols in schema_context.items()])
+    # Build schema context with emphasis on exact column names
+    schema_lines = ["EXACT column names (use these exactly):"]
+    for t, cols in schema_context.items():
+        schema_lines.append(f"  {t}: {', '.join(cols)}")
+    context_str = "\n".join(schema_lines)
     
     # Concise intent guidance for faster processing
     clauses_str = ', '.join(intent_analysis.required_clauses) if intent_analysis.required_clauses else 'None'
@@ -367,7 +371,9 @@ def build_enhanced_prompt(question: str, schema_context: Dict[str, List[str]], i
     
     prompt = f"""Q: {question}
 {intent_guidance}
-Schema: {context_str}
+Schema:
+{context_str}
+⚠️ CRITICAL: Use exact column names above (e.g., "fcity" NOT "fromCity", "fprice" NOT "price").
 Generate SQL only, start with SELECT."""
     
     return prompt
